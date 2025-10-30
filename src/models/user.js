@@ -1,93 +1,57 @@
 const pool = require('../config/database');
-const bcrypt = require('bcryptjs');
 
 class User {
-
-  // Crear tabla de usuarios
   static async createTable() {
     const query = `
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE IF NOT EXISTS usuarios (
         id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        email VARCHAR(100) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        phone VARCHAR(20),
-        role VARCHAR(20) DEFAULT 'client' CHECK (role IN ('client', 'admin', 'barber')),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        rol_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
+        nombre VARCHAR(100) NOT NULL,
+        telefono VARCHAR(15),
+        contraseña VARCHAR(255) NOT NULL,
+        fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-      
-      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-      CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
     `;
-
+    
     try {
       await pool.query(query);
-      console.log('✅ Tabla users creada o ya existe');
-      return true;
+      console.log('✅ Tabla usuarios creada/verificada');
     } catch (error) {
-      console.error('❌ Error al crear tabla users:', error.message);
+      console.error('❌ Error creando tabla usuarios:', error.message);
       throw error;
     }
   }
 
-  // Crear un nuevo usuario
-  static async create(userData) {
-    const { name, email, password, phone, role = 'client' } = userData;
-
-    // Validaciones básicas
-    if (!name || !email || !password) {
-      throw new Error('Nombre, email y contraseña son requeridos');
-    }
-
-    // Hash de la contraseña
-    const hashedPassword = await bcrypt.hash(password, 10);
-
+  static async create({ rol_id, nombre, telefono, contraseña }) {
     const query = `
-      INSERT INTO users (name, email, password, phone, role)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, name, email, phone, role, created_at
+      INSERT INTO usuarios (rol_id, nombre, telefono, contraseña)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, rol_id, nombre, telefono, fecha_registro
     `;
-
+    const values = [rol_id, nombre, telefono, contraseña];
+    
     try {
-      const result = await pool.query(query, [name, email, hashedPassword, phone, role]);
+      const result = await pool.query(query, values);
       return result.rows[0];
     } catch (error) {
-      if (error.code === '23505') { // Código de error para duplicados
-        throw new Error('El email ya está registrado');
-      }
       throw error;
     }
   }
 
-  // Buscar usuario por ID
-  static async findById(id) {
-    const query = 'SELECT id, name, email, phone, role, created_at, updated_at FROM users WHERE id = $1';
-
-    try {
-      const result = await pool.query(query, [id]);
-      return result.rows[0] || null;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Buscar usuario por email (incluye password para login)
-  static async findByEmail(email) {
-    const query = 'SELECT * FROM users WHERE email = $1';
-
-    try {
-      const result = await pool.query(query, [email]);
-      return result.rows[0] || null;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  // Obtener todos los usuarios
   static async findAll() {
-    const query = 'SELECT id, name, email, phone, role, created_at FROM users ORDER BY created_at DESC';
-
+    const query = `
+      SELECT 
+        u.id,
+        u.rol_id,
+        r.nombre as rol_nombre,
+        u.nombre,
+        u.telefono,
+        u.fecha_registro
+      FROM usuarios u
+      JOIN roles r ON u.rol_id = r.id
+      ORDER BY u.fecha_registro DESC
+    `;
+    
     try {
       const result = await pool.query(query);
       return result.rows;
@@ -96,62 +60,184 @@ class User {
     }
   }
 
-  // Actualizar usuario
-  static async update(id, userData) {
-    const { name, email, phone } = userData;
-
+  static async findById(id) {
     const query = `
-      UPDATE users 
-      SET name = COALESCE($1, name), 
-          email = COALESCE($2, email), 
-          phone = COALESCE($3, phone), 
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = $4
-      RETURNING id, name, email, phone, role, updated_at
+      SELECT 
+        u.id,
+        u.rol_id,
+        r.nombre as rol_nombre,
+        u.nombre,
+        u.telefono,
+        u.fecha_registro
+      FROM usuarios u
+      JOIN roles r ON u.rol_id = r.id
+      WHERE u.id = $1
     `;
-
-    try {
-      const result = await pool.query(query, [name, email, phone, id]);
-      return result.rows[0] || null;
-    } catch (error) {
-      if (error.code === '23505') {
-        throw new Error('El email ya está en uso');
-      }
-      throw error;
-    }
-  }
-
-  // Eliminar usuario
-  static async delete(id) {
-    const query = 'DELETE FROM users WHERE id = $1 RETURNING id, name, email';
-
+    
     try {
       const result = await pool.query(query, [id]);
-      return result.rows[0] || null;
+      return result.rows[0];
     } catch (error) {
       throw error;
     }
   }
 
-  // Comparar contraseña
-  static async comparePassword(plainPassword, hashedPassword) {
-    return await bcrypt.compare(plainPassword, hashedPassword);
+  static async findByRol(rol_id) {
+    const query = `
+      SELECT 
+        u.id,
+        u.rol_id,
+        r.nombre as rol_nombre,
+        u.nombre,
+        u.telefono,
+        u.fecha_registro
+      FROM usuarios u
+      JOIN roles r ON u.rol_id = r.id
+      WHERE u.rol_id = $1
+      ORDER BY u.nombre
+    `;
+    
+    try {
+      const result = await pool.query(query, [rol_id]);
+      return result.rows;
+    } catch (error) {
+      throw error;
+    }
   }
 
-  // Actualizar contraseña
-  static async updatePassword(id, newPassword) {
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
+  static async findByTelefono(telefono) {
     const query = `
-      UPDATE users 
-      SET password = $1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
-      RETURNING id
+      SELECT 
+        u.id,
+        u.rol_id,
+        r.nombre as rol_nombre,
+        u.nombre,
+        u.telefono,
+        u.contraseña,
+        u.fecha_registro
+      FROM usuarios u
+      JOIN roles r ON u.rol_id = r.id
+      WHERE u.telefono = $1
     `;
-
+    
     try {
-      const result = await pool.query(query, [hashedPassword, id]);
-      return result.rows[0] || null;
+      const result = await pool.query(query, [telefono]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async update(id, data) {
+    const fields = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (data.rol_id !== undefined) {
+      fields.push(`rol_id = $${paramCount++}`);
+      values.push(data.rol_id);
+    }
+    if (data.nombre !== undefined) {
+      fields.push(`nombre = $${paramCount++}`);
+      values.push(data.nombre);
+    }
+    if (data.telefono !== undefined) {
+      fields.push(`telefono = $${paramCount++}`);
+      values.push(data.telefono);
+    }
+    if (data.contraseña !== undefined) {
+      fields.push(`contraseña = $${paramCount++}`);
+      values.push(data.contraseña);
+    }
+
+    if (fields.length === 0) return null;
+
+    values.push(id);
+    const query = `
+      UPDATE usuarios 
+      SET ${fields.join(', ')}
+      WHERE id = $${paramCount}
+      RETURNING id, rol_id, nombre, telefono, fecha_registro
+    `;
+    
+    try {
+      const result = await pool.query(query, values);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async updatePassword(id, nuevaContraseña) {
+    const query = `
+      UPDATE usuarios 
+      SET contraseña = $1
+      WHERE id = $2
+      RETURNING id, nombre
+    `;
+    
+    try {
+      const result = await pool.query(query, [nuevaContraseña, id]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async delete(id) {
+    const query = 'DELETE FROM usuarios WHERE id = $1 RETURNING id, nombre';
+    
+    try {
+      const result = await pool.query(query, [id]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async countByRol(rol_id) {
+    const query = 'SELECT COUNT(*) as total FROM usuarios WHERE rol_id = $1';
+    
+    try {
+      const result = await pool.query(query, [rol_id]);
+      return parseInt(result.rows[0].total);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  static async getStats() {
+    const query = `
+      SELECT 
+        r.nombre as rol,
+        COUNT(u.id) as total
+      FROM roles r
+      LEFT JOIN usuarios u ON r.id = u.rol_id
+      GROUP BY r.id, r.nombre
+      ORDER BY r.id
+    `;
+    
+    try {
+      const result = await pool.query(query);
+      return result.rows;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Verificar si un teléfono ya existe (útil para validación)
+  static async telefonoExists(telefono, excludeId = null) {
+    let query = 'SELECT id FROM usuarios WHERE telefono = $1';
+    const values = [telefono];
+    
+    if (excludeId) {
+      query += ' AND id != $2';
+      values.push(excludeId);
+    }
+    
+    try {
+      const result = await pool.query(query, values);
+      return result.rows.length > 0;
     } catch (error) {
       throw error;
     }
