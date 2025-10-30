@@ -11,9 +11,21 @@ app.use(express.urlencoded({ extended: true }));
 
 // Importar rutas
 const userRoutes = require('./src/routes/usersRoutes');
+const roleRoutes = require('./src/routes/roleRoutes');
+const barberRoutes = require('./src/routes/barberRoutes');
+const serviceRoutes = require('./src/routes/serviceRoutes');
+const productRoutes = require('./src/routes/productRoutes');
+const reservationRoutes = require('./src/routes/reservationRoutes');
+const unavailabilityRoutes = require('./src/routes/unavailabilityRoutes');
 
 // Usar rutas
 app.use('/api/users', userRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/barbers', barberRoutes);
+app.use('/api/services', serviceRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/reservations', reservationRoutes);
+app.use('/api/unavailability', unavailabilityRoutes);
 
 // Ruta de prueba de salud
 app.get('/api/health', (req, res) => {
@@ -33,7 +45,13 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/api/health',
-      users: '/api/users'
+      users: '/api/users',
+      roles: '/api/roles',
+      barbers: '/api/barbers',
+      services: '/api/services',
+      products: '/api/products',
+      reservations: '/api/reservations',
+      unavailability: '/api/unavailability'
     }
   });
 });
