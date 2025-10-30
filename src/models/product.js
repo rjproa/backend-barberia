@@ -1,26 +1,6 @@
 const pool = require('../config/database');
 
 class Product {
-  static async createTable() {
-    const query = `
-      CREATE TABLE IF NOT EXISTS productos (
-        id SERIAL PRIMARY KEY,
-        nombre VARCHAR(100) NOT NULL,
-        descripcion TEXT,
-        precio DECIMAL(10,2) NOT NULL,
-        categoria VARCHAR(100),
-        activo BOOLEAN DEFAULT true
-      );
-    `;
-    
-    try {
-      await pool.query(query);
-      console.log('✅ Tabla productos creada/verificada');
-    } catch (error) {
-      console.error('❌ Error creando tabla productos:', error.message);
-      throw error;
-    }
-  }
 
   static async create({ nombre, descripcion, precio, categoria }) {
     const query = `

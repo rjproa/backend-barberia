@@ -4,12 +4,10 @@ require('dotenv').config();
 
 const app = express();
 
-// Middlewares globales
 app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Importar rutas
+
 const userRoutes = require('./src/routes/usersRoutes');
 const roleRoutes = require('./src/routes/roleRoutes');
 const barberRoutes = require('./src/routes/barberRoutes');
@@ -18,7 +16,6 @@ const productRoutes = require('./src/routes/productRoutes');
 const reservationRoutes = require('./src/routes/reservationRoutes');
 const unavailabilityRoutes = require('./src/routes/unavailabilityRoutes');
 
-// Usar rutas
 app.use('/api/users', userRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/barbers', barberRoutes);
@@ -27,7 +24,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/unavailability', unavailabilityRoutes);
 
-// Ruta de prueba de salud
+
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -38,7 +35,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Ruta raíz
 app.get('/', (req, res) => {
   res.json({
     message: 'API Barbería - Backend',
@@ -56,7 +52,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// Manejo de rutas no encontradas
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -65,13 +60,13 @@ app.use((req, res) => {
   });
 });
 
+
 // Manejo de errores global
 app.use((err, req, res, next) => {
   console.error('Error global:', err.stack);
   res.status(err.status || 500).json({
     success: false,
-    error: err.message || 'Error interno del servidor',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    message: err.message || 'Error interno del servidor'
   });
 });
 

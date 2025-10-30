@@ -1,26 +1,7 @@
 const pool = require('../config/database');
 
 class Service {
-  static async createTable() {
-    const query = `
-      CREATE TABLE IF NOT EXISTS servicios (
-        id SERIAL PRIMARY KEY,
-        nombre VARCHAR(100) NOT NULL,
-        descripcion TEXT,
-        precio DECIMAL(10,2) NOT NULL,
-        duracion INTEGER,
-        activo BOOLEAN DEFAULT true
-      );
-    `;
-    
-    try {
-      await pool.query(query);
-      console.log('✅ Tabla servicios creada/verificada');
-    } catch (error) {
-      console.error('❌ Error creando tabla servicios:', error.message);
-      throw error;
-    }
-  }
+
 
   static async create({ nombre, descripcion, precio, duracion }) {
     const query = `

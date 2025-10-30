@@ -1,30 +1,7 @@
 const pool = require('../config/database');
 
 class BarberUnavailability {
-  static async createTable() {
-    const query = `
-      CREATE TABLE IF NOT EXISTS barberos_indisponibilidad (
-        id SERIAL PRIMARY KEY,
-        barbero_id INTEGER NOT NULL REFERENCES barberos(id) ON DELETE CASCADE,
-        fecha DATE NOT NULL,
-        hora_inicio TIME,
-        hora_fin TIME,
-        motivo VARCHAR(100),
-        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-      
-      CREATE INDEX IF NOT EXISTS idx_barberos_indisponibilidad 
-      ON barberos_indisponibilidad(barbero_id, fecha, hora_inicio);
-    `;
-    
-    try {
-      await pool.query(query);
-      console.log('✅ Tabla barberos_indisponibilidad creada/verificada');
-    } catch (error) {
-      console.error('❌ Error creando tabla barberos_indisponibilidad:', error.message);
-      throw error;
-    }
-  }
+
 
   static async create({ barbero_id, fecha, hora_inicio, hora_fin, motivo }) {
     const query = `

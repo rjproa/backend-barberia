@@ -1,28 +1,7 @@
 const pool = require('../config/database');
 
 class Barber {
-  static async createTable() {
-    const query = `
-      CREATE TABLE IF NOT EXISTS barberos (
-        id SERIAL PRIMARY KEY,
-        usuario_id INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
-        nombre_artistico VARCHAR(100),
-        especialidad VARCHAR(100),
-        disponible BOOLEAN DEFAULT true,
-        total_citas INTEGER DEFAULT 0,
-        citas_completadas INTEGER DEFAULT 0,
-        citas_canceladas INTEGER DEFAULT 0
-      );
-    `;
-    
-    try {
-      await pool.query(query);
-      console.log('✅ Tabla barberos creada/verificada');
-    } catch (error) {
-      console.error('❌ Error creando tabla barberos:', error.message);
-      throw error;
-    }
-  }
+
 
   static async create({ usuario_id, nombre_artistico, especialidad }) {
     const query = `
@@ -96,14 +75,14 @@ class Barber {
       WHERE id = $${paramCount}
       RETURNING *
     `;
-    
+
     const result = await pool.query(query, values);
     return result.rows[0];
   }
 
   static async updateStats(id, type) {
     let query;
-    switch(type) {
+    switch (type) {
       case 'total':
         query = 'UPDATE barberos SET total_citas = total_citas + 1 WHERE id = $1 RETURNING *';
         break;
@@ -116,7 +95,7 @@ class Barber {
       default:
         return null;
     }
-    
+
     const result = await pool.query(query, [id]);
     return result.rows[0];
   }

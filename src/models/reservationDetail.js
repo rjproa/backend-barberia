@@ -1,27 +1,6 @@
 const pool = require('../config/database');
 
 class ReservationDetail {
-  static async createTable() {
-    const query = `
-      CREATE TABLE IF NOT EXISTS detalle_reserva (
-        id SERIAL PRIMARY KEY,
-        reserva_id INTEGER NOT NULL REFERENCES reservas(id) ON DELETE CASCADE,
-        tipo VARCHAR(20) NOT NULL,
-        servicio_id INTEGER REFERENCES servicios(id),
-        producto_id INTEGER REFERENCES productos(id),
-        precio_unitario DECIMAL(10,2) NOT NULL,
-        CHECK (tipo IN ('servicio', 'producto'))
-      );
-    `;
-    
-    try {
-      await pool.query(query);
-      console.log('✅ Tabla detalle_reserva creada/verificada');
-    } catch (error) {
-      console.error('❌ Error creando tabla detalle_reserva:', error.message);
-      throw error;
-    }
-  }
 
   static async create({ reserva_id, tipo, servicio_id, producto_id, precio_unitario }) {
     const query = `

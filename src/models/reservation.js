@@ -1,34 +1,7 @@
 const pool = require('../config/database');
 
 class Reservation {
-  static async createTable() {
-    const query = `
-      CREATE TABLE IF NOT EXISTS reservas (
-        id SERIAL PRIMARY KEY,
-        usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-        barbero_id INTEGER NOT NULL REFERENCES barberos(id) ON DELETE CASCADE,
-        fecha_reserva DATE NOT NULL,
-        hora_reserva TIME NOT NULL,
-        estado VARCHAR(20) DEFAULT 'pendiente',
-        notas TEXT,
-        fecha_cancelacion TIMESTAMP,
-        cancelado_por INTEGER REFERENCES usuarios(id),
-        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(barbero_id, fecha_reserva, hora_reserva)
-      );
-      
-      CREATE INDEX IF NOT EXISTS idx_reservas_barbero_fecha 
-      ON reservas(barbero_id, fecha_reserva, hora_reserva);
-    `;
-    
-    try {
-      await pool.query(query);
-      console.log('✅ Tabla reservas creada/verificada');
-    } catch (error) {
-      console.error('❌ Error creando tabla reservas:', error.message);
-      throw error;
-    }
-  }
+
 
   static async create({ usuario_id, barbero_id, fecha_reserva, hora_reserva, notas }) {
     const client = await pool.connect();

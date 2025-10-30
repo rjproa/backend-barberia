@@ -1,26 +1,6 @@
 const pool = require('../config/database');
 
 class User {
-  static async createTable() {
-    const query = `
-      CREATE TABLE IF NOT EXISTS usuarios (
-        id SERIAL PRIMARY KEY,
-        rol_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
-        nombre VARCHAR(100) NOT NULL,
-        telefono VARCHAR(15),
-        contraseña VARCHAR(255) NOT NULL,
-        fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `;
-    
-    try {
-      await pool.query(query);
-      console.log('✅ Tabla usuarios creada/verificada');
-    } catch (error) {
-      console.error('❌ Error creando tabla usuarios:', error.message);
-      throw error;
-    }
-  }
 
   static async create({ rol_id, nombre, telefono, contraseña }) {
     const query = `
@@ -29,7 +9,7 @@ class User {
       RETURNING id, rol_id, nombre, telefono, fecha_registro
     `;
     const values = [rol_id, nombre, telefono, contraseña];
-    
+
     try {
       const result = await pool.query(query, values);
       return result.rows[0];
@@ -51,7 +31,7 @@ class User {
       JOIN roles r ON u.rol_id = r.id
       ORDER BY u.fecha_registro DESC
     `;
-    
+
     try {
       const result = await pool.query(query);
       return result.rows;
@@ -73,7 +53,7 @@ class User {
       JOIN roles r ON u.rol_id = r.id
       WHERE u.id = $1
     `;
-    
+
     try {
       const result = await pool.query(query, [id]);
       return result.rows[0];
@@ -96,7 +76,7 @@ class User {
       WHERE u.rol_id = $1
       ORDER BY u.nombre
     `;
-    
+
     try {
       const result = await pool.query(query, [rol_id]);
       return result.rows;
@@ -105,28 +85,6 @@ class User {
     }
   }
 
-  static async findByTelefono(telefono) {
-    const query = `
-      SELECT 
-        u.id,
-        u.rol_id,
-        r.nombre as rol_nombre,
-        u.nombre,
-        u.telefono,
-        u.contraseña,
-        u.fecha_registro
-      FROM usuarios u
-      JOIN roles r ON u.rol_id = r.id
-      WHERE u.telefono = $1
-    `;
-    
-    try {
-      const result = await pool.query(query, [telefono]);
-      return result.rows[0];
-    } catch (error) {
-      throw error;
-    }
-  }
 
   static async update(id, data) {
     const fields = [];
@@ -159,7 +117,7 @@ class User {
       WHERE id = $${paramCount}
       RETURNING id, rol_id, nombre, telefono, fecha_registro
     `;
-    
+
     try {
       const result = await pool.query(query, values);
       return result.rows[0];
@@ -175,7 +133,7 @@ class User {
       WHERE id = $2
       RETURNING id, nombre
     `;
-    
+
     try {
       const result = await pool.query(query, [nuevaContraseña, id]);
       return result.rows[0];
@@ -186,7 +144,7 @@ class User {
 
   static async delete(id) {
     const query = 'DELETE FROM usuarios WHERE id = $1 RETURNING id, nombre';
-    
+
     try {
       const result = await pool.query(query, [id]);
       return result.rows[0];
@@ -197,7 +155,7 @@ class User {
 
   static async countByRol(rol_id) {
     const query = 'SELECT COUNT(*) as total FROM usuarios WHERE rol_id = $1';
-    
+
     try {
       const result = await pool.query(query, [rol_id]);
       return parseInt(result.rows[0].total);
@@ -216,7 +174,7 @@ class User {
       GROUP BY r.id, r.nombre
       ORDER BY r.id
     `;
-    
+
     try {
       const result = await pool.query(query);
       return result.rows;
@@ -225,16 +183,15 @@ class User {
     }
   }
 
-  // Verificar si un teléfono ya existe (útil para validación)
   static async telefonoExists(telefono, excludeId = null) {
     let query = 'SELECT id FROM usuarios WHERE telefono = $1';
     const values = [telefono];
-    
+
     if (excludeId) {
       query += ' AND id != $2';
       values.push(excludeId);
     }
-    
+
     try {
       const result = await pool.query(query, values);
       return result.rows.length > 0;
