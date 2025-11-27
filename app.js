@@ -7,7 +7,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ============================================
+// RUTAS DE AUTENTICACIÓN (NUEVAS)
+// ============================================
+const authRoutes = require('./src/routes/authRoutes');
+app.use('/api/auth', authRoutes);
 
+// ============================================
+// RUTAS EXISTENTES
+// ============================================
 const userRoutes = require('./src/routes/usersRoutes');
 const roleRoutes = require('./src/routes/roleRoutes');
 const barberRoutes = require('./src/routes/barberRoutes');
@@ -24,7 +32,9 @@ app.use('/api/products', productRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/unavailability', unavailabilityRoutes);
 
-
+// ============================================
+// RUTAS DE UTILIDAD
+// ============================================
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
@@ -41,6 +51,7 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     endpoints: {
       health: '/api/health',
+      auth: '/api/auth',
       users: '/api/users',
       roles: '/api/roles',
       barbers: '/api/barbers',
@@ -52,6 +63,9 @@ app.get('/', (req, res) => {
   });
 });
 
+// ============================================
+// MANEJO DE ERRORES
+// ============================================
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -60,8 +74,6 @@ app.use((req, res) => {
   });
 });
 
-
-// Manejo de errores global
 app.use((err, req, res, next) => {
   console.error('Error global:', err.stack);
   res.status(err.status || 500).json({

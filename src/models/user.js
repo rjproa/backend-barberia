@@ -1,14 +1,19 @@
 const pool = require('../config/database');
+const bcrypt = require('bcryptjs');
 
 class User {
 
+  // Crear usuario con contraseña encriptada
   static async create({ rol_id, nombre, telefono, contraseña }) {
+    // Encriptar contraseña
+    const hashedPassword = await bcrypt.hash(contraseña, 10);
+
     const query = `
       INSERT INTO usuarios (rol_id, nombre, telefono, contraseña)
       VALUES ($1, $2, $3, $4)
       RETURNING id, rol_id, nombre, telefono, fecha_registro
     `;
-    const values = [rol_id, nombre, telefono, contraseña];
+    const values = [rol_id, nombre, telefono, hashedPassword];
 
     try {
       const result = await pool.query(query, values);
@@ -18,9 +23,10 @@ class User {
     }
   }
 
+  // Obtener todos los usuarios
   static async findAll() {
     const query = `
-      SELECT 
+      SELECT
         u.id,
         u.rol_id,
         r.nombre as rol_nombre,
@@ -40,9 +46,10 @@ class User {
     }
   }
 
+  // Obtener usuario por ID
   static async findById(id) {
     const query = `
-      SELECT 
+      SELECT
         u.id,
         u.rol_id,
         r.nombre as rol_nombre,
@@ -62,9 +69,10 @@ class User {
     }
   }
 
+  // Obtener usuarios por rol
   static async findByRol(rol_id) {
     const query = `
-      SELECT 
+      SELECT
         u.id,
         u.rol_id,
         r.nombre as rol_nombre,
@@ -85,7 +93,55 @@ class User {
     }
   }
 
+  // NUEVO: Buscar usuario por teléfono (para login)
+  static async findByTelefono(telefono) {
+    const query = `
+      SELECT
+        u.id,
+        u.rol_id,
+        r.nombre as rol_nombre,
+        u.nombre,
+        u.telefono,
+        u.contraseña,
+        u.fecha_registro
+      FROM usuarios u
+      JOIN roles r ON u.rol_id = r.id
+      WHERE u.telefono = $1
+    `;
 
+    try {
+      const result = await pool.query(query, [telefono]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // NUEVO: Buscar usuario por teléfono con contraseña (para autenticación)
+  static async findByTelefonoWithPassword(telefono) {
+    const query = `
+      SELECT
+        u.id,
+        u.rol_id,
+        r.nombre as rol_nombre,
+        u.nombre,
+        u.telefono,
+        u.contraseña,
+        u.fecha_registro
+      FROM usuarios u
+      JOIN roles r ON u.rol_id = r.id
+      WHERE u.telefono = $1
+    `;
+
+    try {
+      const result = await pool.query(query, [telefono]);
+      return result.rows[0];
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Actualizar usuario
   static async update(id, data) {
     const fields = [];
     const values = [];
@@ -104,15 +160,16 @@ class User {
       values.push(data.telefono);
     }
     if (data.contraseña !== undefined) {
+      const hashedPassword = await bcrypt.hash(data.contraseña, 10);
       fields.push(`contraseña = $${paramCount++}`);
-      values.push(data.contraseña);
+      values.push(hashedPassword);
     }
 
     if (fields.length === 0) return null;
 
     values.push(id);
     const query = `
-      UPDATE usuarios 
+      UPDATE usuarios
       SET ${fields.join(', ')}
       WHERE id = $${paramCount}
       RETURNING id, rol_id, nombre, telefono, fecha_registro
@@ -126,22 +183,26 @@ class User {
     }
   }
 
+  // Actualizar contraseña
   static async updatePassword(id, nuevaContraseña) {
+    const hashedPassword = await bcrypt.hash(nuevaContraseña, 10);
+    
     const query = `
-      UPDATE usuarios 
+      UPDATE usuarios
       SET contraseña = $1
       WHERE id = $2
       RETURNING id, nombre
     `;
 
     try {
-      const result = await pool.query(query, [nuevaContraseña, id]);
+      const result = await pool.query(query, [hashedPassword, id]);
       return result.rows[0];
     } catch (error) {
       throw error;
     }
   }
 
+  // Eliminar usuario
   static async delete(id) {
     const query = 'DELETE FROM usuarios WHERE id = $1 RETURNING id, nombre';
 
@@ -153,6 +214,7 @@ class User {
     }
   }
 
+  // Contar usuarios por rol
   static async countByRol(rol_id) {
     const query = 'SELECT COUNT(*) as total FROM usuarios WHERE rol_id = $1';
 
@@ -164,9 +226,10 @@ class User {
     }
   }
 
+  // Obtener estadísticas
   static async getStats() {
     const query = `
-      SELECT 
+      SELECT
         r.nombre as rol,
         COUNT(u.id) as total
       FROM roles r
@@ -183,6 +246,7 @@ class User {
     }
   }
 
+  // Verificar si teléfono existe
   static async telefonoExists(telefono, excludeId = null) {
     let query = 'SELECT id FROM usuarios WHERE telefono = $1';
     const values = [telefono];
@@ -198,6 +262,11 @@ class User {
     } catch (error) {
       throw error;
     }
+  }
+
+  // NUEVO: Comparar contraseña
+  static async comparePassword(plainPassword, hashedPassword) {
+    return await bcrypt.compare(plainPassword, hashedPassword);
   }
 }
 
