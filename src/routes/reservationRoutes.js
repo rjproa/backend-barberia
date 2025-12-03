@@ -2,11 +2,14 @@ const express = require('express');
 const router = express.Router();
 const reservationController = require('../controllers/reservationController');
 
-// POST /api/reservations - Crear nueva reserva
+// POST /api/reservations - Crear nueva reserva (usuario o invitado)
 router.post('/', reservationController.create);
 
 // GET /api/reservations - Obtener todas las reservas
 router.get('/', reservationController.getAll);
+
+// GET /api/reservations/stats - Obtener estadísticas de reservas
+router.get('/stats', reservationController.getStats);
 
 // GET /api/reservations/available-slots - Obtener horarios disponibles
 router.get('/available-slots', reservationController.getAvailableSlots);
@@ -17,8 +20,14 @@ router.get('/status/:estado', reservationController.getByStatus);
 // GET /api/reservations/user/:usuario_id - Obtener reservas de un usuario
 router.get('/user/:usuario_id', reservationController.getByUser);
 
+// GET /api/reservations/guest/:telefono - NUEVO: Obtener reservas de invitado
+router.get('/guest/:telefono', reservationController.getByGuestPhone);
+
 // GET /api/reservations/barber/:barbero_id - Obtener reservas de un barbero
 router.get('/barber/:barbero_id', reservationController.getByBarber);
+
+// GET /api/reservations/user/:usuario_id/loyalty - Obtener estadísticas de fidelidad
+router.get('/user/:usuario_id/loyalty', reservationController.getUserLoyaltyStats);
 
 // GET /api/reservations/:id - Obtener reserva por ID
 router.get('/:id', reservationController.getById);

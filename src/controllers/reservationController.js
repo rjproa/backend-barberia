@@ -1,24 +1,61 @@
 const Reservation = require('../models/reservation');
 const ReservationDetail = require('../models/reservationDetail');
 
+// ============================================
+// CREAR RESERVA CON CÁLCULO AUTOMÁTICO DE DESCUENTO
+// ============================================
 exports.create = async (req, res) => {
   try {
-    const { usuario_id, barbero_id, fecha_reserva, hora_reserva, notas, servicios, productos } = req.body;
-
-    if (!usuario_id || !barbero_id || !fecha_reserva || !hora_reserva) {
-      return res.status(400).json({
-        success: false,
-        error: 'Usuario, barbero, fecha y hora son requeridos'
-      });
-    }
-
-    // Crear la reserva
-    const reservation = await Reservation.create({
+    const {
       usuario_id,
       barbero_id,
       fecha_reserva,
       hora_reserva,
-      notas
+      notas,
+      servicios,
+      productos,
+      es_invitado,
+      invitado_nombre,
+      invitado_telefono,
+      invitado_email
+    } = req.body;
+
+    // Validaciones básicas
+    if (!barbero_id || !fecha_reserva || !hora_reserva) {
+      return res.status(400).json({
+        success: false,
+        error: 'Barbero, fecha y hora son requeridos'
+      });
+    }
+
+    // Validar según tipo de reserva
+    if (es_invitado) {
+      if (!invitado_nombre || !invitado_telefono) {
+        return res.status(400).json({
+          success: false,
+          error: 'Nombre y teléfono son requeridos para reservas de invitados'
+        });
+      }
+    } else {
+      if (!usuario_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'usuario_id es requerido para reservas de usuarios registrados'
+        });
+      }
+    }
+
+    // Crear la reserva (el modelo calcula automáticamente el descuento)
+    const reservation = await Reservation.create({
+      usuario_id: es_invitado ? null : usuario_id,
+      barbero_id,
+      fecha_reserva,
+      hora_reserva,
+      notas,
+      es_invitado: es_invitado || false,
+      invitado_nombre: es_invitado ? invitado_nombre : null,
+      invitado_telefono: es_invitado ? invitado_telefono : null,
+      invitado_email: es_invitado ? invitado_email : null
     });
 
     // Agregar servicios si existen
@@ -47,13 +84,25 @@ exports.create = async (req, res) => {
       }
     }
 
-    // Obtener la reserva completa con detalles
+    // NUEVO: Calcular totales con descuento
+    await Reservation.calcularTotales(reservation.id);
+
+    // Obtener la reserva completa con detalles y descuentos
     const reservationComplete = await Reservation.findById(reservation.id);
     const details = await ReservationDetail.findByReservation(reservation.id);
 
+    // Mensaje personalizado si aplica descuento
+    let message = es_invitado
+      ? 'Reserva de invitado creada exitosamente'
+      : 'Reserva creada exitosamente';
+
+    if (reservation.aplica_descuento) {
+      message += ` - ¡Felicidades! Tienes ${reservation.porcentaje_descuento}% de descuento por fidelidad`;
+    }
+
     res.status(201).json({
       success: true,
-      message: 'Reserva creada exitosamente',
+      message,
       data: {
         ...reservationComplete,
         detalles: details
@@ -69,6 +118,9 @@ exports.create = async (req, res) => {
   }
 };
 
+// ============================================
+// OBTENER TODAS LAS RESERVAS (CON INFO DE DESCUENTOS)
+// ============================================
 exports.getAll = async (req, res) => {
   try {
     const reservations = await Reservation.findAll();
@@ -87,11 +139,14 @@ exports.getAll = async (req, res) => {
   }
 };
 
+// ============================================
+// OBTENER RESERVA POR ID
+// ============================================
 exports.getById = async (req, res) => {
   try {
     const { id } = req.params;
     const reservation = await Reservation.findById(id);
-    
+
     if (!reservation) {
       return res.status(404).json({
         success: false,
@@ -100,14 +155,12 @@ exports.getById = async (req, res) => {
     }
 
     const details = await ReservationDetail.findByReservation(id);
-    const total = await ReservationDetail.getTotalByReservation(id);
 
     res.json({
       success: true,
       data: {
         ...reservation,
-        detalles: details,
-        total
+        detalles: details
       }
     });
   } catch (error) {
@@ -120,11 +173,14 @@ exports.getById = async (req, res) => {
   }
 };
 
+// ============================================
+// OBTENER RESERVAS POR USUARIO
+// ============================================
 exports.getByUser = async (req, res) => {
   try {
     const { usuario_id } = req.params;
     const reservations = await Reservation.findByUser(usuario_id);
-    
+
     res.json({
       success: true,
       count: reservations.length,
@@ -140,13 +196,88 @@ exports.getByUser = async (req, res) => {
   }
 };
 
+// ============================================
+// NUEVO: OBTENER ESTADÍSTICAS DE FIDELIDAD DEL USUARIO
+// ============================================
+exports.getUserLoyaltyStats = async (req, res) => {
+  try {
+    const { usuario_id } = req.params;
+
+    const stats = await Reservation.getUsuarioLoyaltyStats(usuario_id);
+
+    // Parsear el resultado de la función proximo_descuento
+    const proximoDescuento = stats.proximo_descuento;
+    const [aplica, porcentaje, esCitaNumero] = proximoDescuento
+      .replace('(', '')
+      .replace(')', '')
+      .split(',')
+      .map(v => v === 't' ? true : v === 'f' ? false : parseFloat(v));
+
+    res.json({
+      success: true,
+      data: {
+        citas_completadas: parseInt(stats.citas_completadas),
+        proximo_descuento: {
+          aplica: aplica,
+          porcentaje: porcentaje,
+          sera_la_cita: esCitaNumero
+        },
+        veces_uso_descuento: parseInt(stats.veces_uso_descuento),
+        total_ahorrado: parseFloat(stats.total_ahorrado)
+      }
+    });
+  } catch (error) {
+    console.error('Error en getUserLoyaltyStats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al obtener estadísticas de fidelidad',
+      message: error.message
+    });
+  }
+};
+
+// ============================================
+// OBTENER RESERVAS DE INVITADO POR TELÉFONO
+// ============================================
+exports.getByGuestPhone = async (req, res) => {
+  try {
+    const { telefono } = req.params;
+
+    if (!telefono) {
+      return res.status(400).json({
+        success: false,
+        error: 'Teléfono es requerido'
+      });
+    }
+
+    const reservations = await Reservation.findByGuestPhone(telefono);
+
+    res.json({
+      success: true,
+      count: reservations.length,
+      message: `Reservas encontradas para el teléfono ${telefono}`,
+      data: reservations
+    });
+  } catch (error) {
+    console.error('Error en getByGuestPhone reservation:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al obtener reservas del invitado',
+      message: error.message
+    });
+  }
+};
+
+// ============================================
+// OBTENER RESERVAS POR BARBERO
+// ============================================
 exports.getByBarber = async (req, res) => {
   try {
     const { barbero_id } = req.params;
     const { fecha } = req.query;
-    
+
     const reservations = await Reservation.findByBarber(barbero_id, fecha);
-    
+
     res.json({
       success: true,
       count: reservations.length,
@@ -162,11 +293,14 @@ exports.getByBarber = async (req, res) => {
   }
 };
 
+// ============================================
+// OBTENER RESERVAS POR ESTADO
+// ============================================
 exports.getByStatus = async (req, res) => {
   try {
     const { estado } = req.params;
     const reservations = await Reservation.findByStatus(estado);
-    
+
     res.json({
       success: true,
       count: reservations.length,
@@ -182,6 +316,9 @@ exports.getByStatus = async (req, res) => {
   }
 };
 
+// ============================================
+// ACTUALIZAR ESTADO DE RESERVA
+// ============================================
 exports.updateStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -226,6 +363,9 @@ exports.updateStatus = async (req, res) => {
   }
 };
 
+// ============================================
+// OBTENER HORARIOS DISPONIBLES
+// ============================================
 exports.getAvailableSlots = async (req, res) => {
   try {
     const { barbero_id, fecha } = req.query;
@@ -265,6 +405,9 @@ exports.getAvailableSlots = async (req, res) => {
   }
 };
 
+// ============================================
+// ELIMINAR RESERVA
+// ============================================
 exports.delete = async (req, res) => {
   try {
     const { id } = req.params;
@@ -287,6 +430,27 @@ exports.delete = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Error al eliminar reserva',
+      message: error.message
+    });
+  }
+};
+
+// ============================================
+// OBTENER ESTADÍSTICAS DE RESERVAS
+// ============================================
+exports.getStats = async (req, res) => {
+  try {
+    const stats = await Reservation.getStats();
+
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('Error en getStats reservation:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al obtener estadísticas',
       message: error.message
     });
   }
